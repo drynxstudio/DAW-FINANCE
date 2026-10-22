@@ -4,6 +4,7 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#eff3ef"><meta name="description" content="DAW Finance — kendali keuangan proyek dalam satu workspace.">
 <title>DAW Finance — Finance Workspace</title>
+<!-- Sync fix 4.1: local queue and automatic retry, 2026-10-22 -->
 <style>
 :root{--bg:#f3f5f2;--panel:#fff;--soft:#f7f9f6;--text:#202c29;--muted:#7b8580;--line:#e6ebe5;--accent:#c6f36b;--green:#287953;--green-soft:#edf7ee;--red:#c25c51;--red-soft:#fcefeb;--shadow:0 5px 25px #203c2610;--radius:20px;--sidebar:228px;--font:Inter,"Segoe UI",Arial,sans-serif;color-scheme:light}
 [data-theme=dark]{--bg:#111814;--panel:#1a231d;--soft:#202b23;--text:#ecf2e9;--muted:#9aa99e;--line:#303d33;--green:#b5e98c;--green-soft:#283b28;--red:#f19e8c;--red-soft:#3a2b26;--shadow:0 8px 28px #0002;color-scheme:dark}
@@ -56,6 +57,7 @@ body{letter-spacing:-.1px}h1{font-size:30px;font-weight:650;letter-spacing:-1.15
 <header class="topbar"><div class="breadcrumb">Workspace <span>/</span> <b id="breadcrumb">Overview</b></div><a href="#" class="mobilebrand daw-mobile-brand" aria-label="DAW Finance beranda"><span class="daw-logo" role="img" aria-label="DAW Finance"></span></a><div class="toptools"><button id="syncBadge" class="sync" data-state="local" title="Buka pengaturan koneksi">Lokal · belum terhubung</button><select class="mode-select" id="layout" aria-label="Mode tampilan"><option value="auto">Otomatis</option><option value="desktop">Desktop</option><option value="phone">Smartphone</option></select><button class="iconbtn" id="themeToggle" aria-label="Ganti tema" title="Ganti tema"><i data-icon="moon"></i></button><button class="iconbtn" data-settings aria-label="Pengaturan"><i data-icon="settings"></i></button></div></header>
 <div class="welcome"><div><div class="eyebrow" style="margin-bottom:5px">PROJECT FINANCE</div><h1 id="pageTitle">Ringkasan keuangan<span style="color:#b84b28">.</span></h1><p id="pageSubtitle">Pantau transaksi, kelola proyek, dan rapikan kas.</p></div><div class="row"><span class="date-today" id="todayLabel"></span><button class="btn primary" id="addButton"><i data-icon="plus"></i>Tambah transaksi</button></div></div>
 <div class="notice" id="setupNotice"><p><strong>Workspace Anda siap.</strong> Hubungkan spreadsheet untuk membuka data proyek, atau jelajahi dashboard dengan data demo.</p><button class="btn" id="startDemo">Coba demo <i data-icon="arrow"></i></button></div>
+<div class="notice hidden" id="syncIssue"><p id="syncIssueText" role="status"></p><button class="btn" data-settings>Detail koneksi</button></div>
 <div class="notice demo hidden" id="demoNotice"><p><strong>Mode demo aktif.</strong> Angka di sini adalah contoh. Perubahan demo tidak dikirim ke spreadsheet.</p><button class="btn" id="exitDemo">Keluar demo</button></div>
 <div class="notice error hidden" id="conflictNotice"><p><strong>Sinkronisasi perlu ditinjau.</strong> <span id="conflictText"></span></p><button class="btn" data-settings>Tinjau</button></div>
 <div id="closedBanner" class="closed-banner hidden"></div><div class="filters"><div class="filter-set"><select id="projectFilter" aria-label="Filter proyek"></select><select id="period" aria-label="Periode"><option value="all">Semua waktu</option><option value="month">Bulan ini</option><option value="last">Bulan lalu</option><option value="year">Tahun ini</option><option value="custom">Pilih tanggal</option></select><input type="date" id="fromDate" class="hidden" aria-label="Tanggal awal"><input type="date" id="toDate" class="hidden" aria-label="Tanggal akhir"><button class="clearbtn hidden" id="resetFilters">Reset</button></div><button class="btn" id="exportCSV"><i data-icon="download"></i>Ekspor CSV</button></div>
@@ -91,7 +93,7 @@ const CATEGORIES=['Persiapan','Struktur','Arsitektur','MEP','Operasional','Termi
 const COLORS=['#b95c36','#713146','#c49373','#463637','#aa7f88','#d1b6a7'];
 const PREF='daw_finance_v4_preferences', PROTOCOL='daw-finance-v4';
 // TEMPEL URL WEB APP BARU (berakhiran /exec) DI ANTARA TANDA PETIK INI:
-const API_URL = 'https://script.google.com/macros/s/AKfycbxHtefTHeQpTISvt6Pq4AvQMpTi0zPOaETpbS3FeeVb1iB1ffC42kReiGTGR67MhKD9/exec';
+const API_URL = '';
 const icons={grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',arrows:'M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4',building:'M4 21V7h10v14M14 11h6v10M8 11h2m-2 4h2m-2 4h2M2 21h20M7 7V3h10v8',chart:'M4 3v18h17M8 16v-5m5 5V7m5 9V4',settings:'M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',download:'M12 3v12m-5-5 5 5 5-5M4 15v6h16v-6',upload:'M12 16V4m-5 5 5-5 5 5M4 16v5h16v-5',spark:'m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z',chevron:'m9 5 7 7-7 7',arrow:'M4 12h16m-6-6 6 6-6 6',moon:'M20 14A8 8 0 0 1 10 4a8.5 8.5 0 1 0 10 10',sun:'M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5',plus:'M12 5v14M5 12h14',close:'m6 6 12 12M6 18 18 6',check:'m5 12 4 4L19 6',wallet:'M3 6h17v14H3zM3 6l14-3v3M15 11h6v5h-6z',downleft:'M18 6 6 18M6 8v10h10',upright:'M6 18 18 6M8 6h10v10',pie:'M12 3v9h9M9 3.5A9 9 0 1 0 20.5 15M15 3.5a9 9 0 0 1 5.5 5.5H15z',search:'M16 10a6 6 0 1 1-12 0 6 6 0 0 1 12 0m-1.5 4.5L21 21',edit:'m4 16 12-12 4 4L8 20H4zM13 7l4 4',trash:'M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7',copy:'M8 8h12v13H8zM4 16V3h12',print:'M7 8V3h10v5M6 17H3V9h18v8h-3M7 14h10v7H7z',link:'m10 14 4-4M8 16l-2 2a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0M16 8l2-2a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0'};
 function icon(name){return `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="${icons[name]||icons.grid}"/></svg>`}
 function paintIcons(){document.querySelectorAll('[data-icon]').forEach(el=>{el.outerHTML=icon(el.dataset.icon)})}
@@ -120,7 +122,7 @@ function readCache(key){
   const s=JSON.parse(raw);
   if(!s||!Array.isArray(s.baseData)||!Array.isArray(s.baseProjects)||typeof s.stamp!=='string')throw Error('Format cache v4 tidak valid.');
   s.data=normalize(s.data);s.projects=normalizeProjects(s.projects,s.data);
-  s.baseData=normalize(s.baseData);s.baseProjects=normalizeProjects(s.baseProjects,s.baseData);
+  s.baseData=normalize(s.baseData);s.baseProjects=normalizeProjects(s.baseProjects,s.baseData);if(s.flight){s.flight.data=normalize(s.flight.data);s.flight.projects=normalizeProjects(s.flight.projects,s.flight.data);if(!Array.isArray(s.flight.changes?.transactions)||!Array.isArray(s.flight.changes?.projects))throw Error('Antrean lokal tidak valid.');}
   if((s.data.length||s.projects.length)&&!s.databaseId)throw Error('Identitas cache tidak lengkap.');
   return {...emptyState(),...s};
 }
@@ -144,7 +146,19 @@ function options(el,values,first){const current=el.value;el.innerHTML=(first!==u
 function applyPrefs(){const dark=prefs.theme==='dark'||prefs.theme==='system'&&matchMedia('(prefers-color-scheme:dark)').matches;document.documentElement.dataset.theme=dark?'dark':'light';document.documentElement.dataset.layout=prefs.layout;$('themeToggle').innerHTML=icon(dark?'sun':'moon');$('themeToggle').setAttribute('aria-label',dark?'Aktifkan tema terang':'Aktifkan tema gelap');$('layout').value=prefs.layout;$('settingLayout').value=prefs.layout;$('settingTheme').value=prefs.theme;document.querySelector('meta[name=theme-color]').content=dark?'#141313':'#f4f2ef'}
 
 function setStatus(type,text){$('syncBadge').dataset.state=type;$('syncBadge').textContent=demo?'Demo · data contoh':text}
-function updateStatus(){if(demo)return setStatus('local','Demo');if(busy)return setStatus('busy','Menyinkronkan…');if(conflict)return setStatus('error','Perlu ditinjau');if(!navigator.onLine)return setStatus('error','Offline · data lokal');if(lastSyncError)return setStatus('error','Belum tersinkron');if(!connected)return setStatus('local',state.pending?'Lokal · belum terkirim':'Lokal · belum terhubung');setStatus(state.pending?'busy':'ok',state.pending?'Menunggu sinkronisasi':'Cloud tersinkron');}
+function updateStatus(){
+  $('syncIssue').classList.toggle('hidden',demo||!lastSyncError);
+  $('syncIssueText').textContent=lastSyncError+(retryTimer?' Mencoba lagi otomatis.':'');
+  if(demo)return setStatus('local','Demo');
+  if(conflict)return setStatus('error','Perbedaan data · perlu ditinjau');
+  if(busy)return setStatus('busy',state.pending?'Tersimpan lokal · mengirim…':'Menghubungkan… · input tetap aktif');
+  if(state.pending)return setStatus('local','Tersimpan lokal · belum terkirim');
+  if(lastSyncError)return setStatus('error','Koneksi gagal · lihat detail');
+  if(!navigator.onLine)return setStatus('local','Offline · salinan lokal');
+  if(!connected)return setStatus('local','Lokal · belum terhubung');
+  setStatus('ok','Cloud tersinkron');
+}
+
 function range(){let from='',to='',now=new Date(),period=$('period').value;if(period==='month'){from=localDate(new Date(now.getFullYear(),now.getMonth(),1));to=localDate(new Date(now.getFullYear(),now.getMonth()+1,0))}if(period==='last'){from=localDate(new Date(now.getFullYear(),now.getMonth()-1,1));to=localDate(new Date(now.getFullYear(),now.getMonth(),0))}if(period==='year'){from=now.getFullYear()+'-01-01';to=now.getFullYear()+'-12-31'}if(period==='custom'){from=$('fromDate').value;to=$('toDate').value}return {from,to}}
 function context(){const {from,to}=range(),p=$('projectFilter').value;return rows().filter(r=>(!p||r.proyek===p)&&(!from||r.tanggal>=from)&&(!to||r.tanggal<=to))}
 function listRows(){let q=$('search').value.toLocaleLowerCase('id-ID').trim(),k=$('categoryFilter').value,t=$('typeFilter').value;return context().filter(r=>(!k||r.kategori===k)&&(!t||r.jenis===t)&&(!q||[r.keterangan,r.vendor,r.noNota,r.proyek].join(' ').toLocaleLowerCase('id-ID').includes(q))).sort((a,b)=>$('sort').value==='big'?amount(b)-amount(a):$('sort').value==='old'?a.tanggal.localeCompare(b.tanggal):b.tanggal.localeCompare(a.tanggal))}
@@ -161,15 +175,15 @@ function setType(type){$('jenis').value=type;document.querySelectorAll('[data-ty
 function moneyInput(s){const cleaned=s.replace(/[^\d,]/g,'');const parts=cleaned.split(',');return (parts[0]?Number(parts[0]).toLocaleString('id-ID'):'')+(parts.length>1?','+parts[1].slice(0,2):'')}
 function parseMoney(s){return Number(s.replace(/\./g,'').replace(',','.'))}
 function calc(){const n=Number($('qty').value)*parseMoney($('harga').value);$('formTotal').textContent=Number.isFinite(n)?rupiah(Math.round(n*100)/100):'Rp 0'}
-function openForm(id=null,copy=false){if(!demo&&!state.databaseId){toast('Hubungkan spreadsheet baru terlebih dahulu.');return openSettings()}if(!demo&&(conflict||storageBlocked||busy)){toast('Periksa status data di Pengaturan sebelum mengedit.');return}const r=id?rows().find(r=>r.id===id):null;if(r&&!canEditProject(r.proyek))return toast('Kas proyek ini terkunci. Buka kas melalui menu Proyek.');if(!projects().some(p=>p.status==='active')){toast('Tambahkan proyek aktif terlebih dahulu.');return openProjectForm()}editId=copy?null:id;$('txForm').reset();options($('proyek'),projects().filter(p=>p.status==='active').map(p=>p.name));options($('kategori'),[...new Set([...CATEGORIES,...rows().map(r=>r.kategori)])]);$('tanggal').value=localDate();$('proyek').value=(canEditProject($('projectFilter').value)?$('projectFilter').value:projects().find(p=>p.status==='active').name);setType('Keluar');if(r){['proyek','tanggal','kategori','vendor','keterangan','noNota','qty'].forEach(k=>$(k).value=r[k]);$('harga').value=new Intl.NumberFormat('id-ID',{maximumFractionDigits:2}).format(r.harga);setType(r.jenis);if(copy){$('tanggal').value=localDate();$('noNota').value=''}}$('formTitle').textContent=copy?'Duplikat transaksi':id?'Edit transaksi':'Transaksi baru';calc();$('txDialog').showModal()}
+function openForm(id=null,copy=false){if(!demo&&!state.databaseId){toast('Hubungkan spreadsheet baru terlebih dahulu.');return openSettings()}if(!demo&&(conflict||storageBlocked||switchingDatabase||replacingCloud)){toast('Periksa status data di Pengaturan sebelum mengedit.');return}const r=id?rows().find(r=>r.id===id):null;if(r&&!canEditProject(r.proyek))return toast('Kas proyek ini terkunci. Buka kas melalui menu Proyek.');if(!projects().some(p=>p.status==='active')){toast('Tambahkan proyek aktif terlebih dahulu.');return openProjectForm()}editId=copy?null:id;$('txForm').reset();options($('proyek'),projects().filter(p=>p.status==='active').map(p=>p.name));options($('kategori'),[...new Set([...CATEGORIES,...rows().map(r=>r.kategori)])]);$('tanggal').value=localDate();$('proyek').value=(canEditProject($('projectFilter').value)?$('projectFilter').value:projects().find(p=>p.status==='active').name);setType('Keluar');if(r){['proyek','tanggal','kategori','vendor','keterangan','noNota','qty'].forEach(k=>$(k).value=r[k]);$('harga').value=new Intl.NumberFormat('id-ID',{maximumFractionDigits:2}).format(r.harga);setType(r.jenis);if(copy){$('tanggal').value=localDate();$('noNota').value=''}}$('formTitle').textContent=copy?'Duplikat transaksi':id?'Edit transaksi':'Transaksi baru';calc();$('txDialog').showModal()}
 $('txForm').addEventListener('submit',e=>{e.preventDefault();try{if(editId&&!rows().some(r=>r.id===editId))throw Error('Transaksi sudah berubah. Tutup formulir dan coba lagi.');const r={id:editId||uid()};['proyek','tanggal','jenis','kategori','vendor','keterangan','noNota'].forEach(k=>r[k]=$(k).value.trim());r.qty=Number($('qty').value);r.harga=parseMoney($('harga').value);normalize([r]);if(!canEditProject(r.proyek))throw Error('Pilih proyek dengan kas aktif.');const data=editId?rows().map(x=>x.id===editId?r:x):[...rows(),r];if(mutate(data)){$('txDialog').close();toast(demo?'Transaksi demo disimpan.':'Transaksi tersimpan di perangkat.')}}catch(e){toast(e.message)}});
 function remove(id){const r=rows().find(r=>r.id===id);if(!r)return;if(!canEditProject(r.proyek))return toast('Kas proyek terkunci. Buka kas dahulu.');if(confirm('Hapus transaksi “'+r.keterangan+'” sebesar '+rupiah(amount(r))+'?'))if(mutate(rows().filter(x=>x.id!==id)))toast('Transaksi dihapus. Backup sebelumnya dapat dipakai untuk memulihkan.')}
 function download(name,content,mime){const a=document.createElement('a'),url=URL.createObjectURL(new Blob([content],{type:mime}));a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 function backup(){download(`daw-finance-${demo?'demo-':''}backup-${localDate()}.json`,JSON.stringify({app:'DAW Finance',version:4,databaseId:demo?null:state.databaseId,exportedAt:new Date().toISOString(),data:rows(),projects:projects()},null,2),'application/json');toast('Backup JSON disiapkan. Simpan file unduhannya.')}
 function csv(){const columns=['tanggal','proyek','jenis','kategori','vendor','keterangan','noNota','qty','harga','total'];const quote=v=>'"'+String(v??'').replace(/^[\s]*[=+@-]/,m=>"'"+m).replace(/"/g,'""')+'"';const data=listRows();download('daw-finance-transaksi-'+localDate()+'.csv','\uFEFF'+[columns,...data.map(r=>columns.map(k=>k==='total'?amount(r):r[k]))].map(row=>row.map(quote).join(';')).join('\r\n'),'text/csv;charset=utf-8');toast(data.length+' transaksi diekspor sesuai filter.');}
 function sampleData(){const out=[];const add=(month,day,proyek,jenis,kategori,keterangan,vendor,qty,harga)=>out.push({id:'demo-'+out.length,proyek,tanggal:localDate(new Date(new Date().getFullYear(),new Date().getMonth()-5+month,day)),jenis,kategori,keterangan,vendor,noNota:'WF-'+String(out.length+1).padStart(3,'0'),qty,harga});for(let m=0;m<6;m++){DEMO_PROJECTS.forEach((p,i)=>{add(m,3+i,p,'Masuk','Termin',m===0?'Modal awal pekerjaan':'Penerimaan termin proyek','Owner proyek',1,18000000+i*5300000+m*2400000);add(m,10+i,p,'Keluar','Struktur','Pengadaan material sipil','CV Prima Material',30+i*5,210000+m*17000);add(m,19+i,p,'Keluar',['Persiapan','Arsitektur','MEP','Operasional'][i%4],['Mobilisasi alat & pekerja','Pekerjaan finishing','Pengadaan kabel & panel','Operasional lapangan'][i%4],['CV Sinar Jaya','Toko Bangun Indah','PT Listrik Mandiri','Tim lapangan'][i%4],1,6200000+i*780000+m*650000)})}return out}
-function enterDemo(){if(busy)return toast('Tunggu sinkronisasi selesai.');demo=true;demoData=sampleData();demoProjects=deriveProjects(demoData);const closed=demoProjects[1],now=new Date().toISOString(),bal=projectBalance(demoData,closed.name);Object.assign(closed,{status:'closed',closedAt:now,closedBalance:bal,closingNote:'Pekerjaan selesai. Sisa dana dicatat pada ringkasan.',history:[{type:'closed',at:now,note:'Pekerjaan selesai. Sisa dana dicatat pada ringkasan.',balance:bal}]});$('settingsDialog').close();resetFilters();navigate('overview');toast('Mode demo aktif. Data asli tetap terpisah.')}
-function exitDemo(){demo=false;demoData=[];demoProjects=[];resetFilters();render();toast('Kembali ke data workspace Anda.')}
+function enterDemo(){clearTimeout(retryTimer);retryTimer=null;if(busy)return toast('Tunggu sinkronisasi selesai.');demo=true;demoData=sampleData();demoProjects=deriveProjects(demoData);const closed=demoProjects[1],now=new Date().toISOString(),bal=projectBalance(demoData,closed.name);Object.assign(closed,{status:'closed',closedAt:now,closedBalance:bal,closingNote:'Pekerjaan selesai. Sisa dana dicatat pada ringkasan.',history:[{type:'closed',at:now,note:'Pekerjaan selesai. Sisa dana dicatat pada ringkasan.',balance:bal}]});$('settingsDialog').close();resetFilters();navigate('overview');toast('Mode demo aktif. Data asli tetap terpisah.')}
+function exitDemo(){demo=false;demoData=[];demoProjects=[];resetFilters();render();toast('Kembali ke data workspace Anda.');if(state.pending)scheduleSync()}
 function resetFilters(){$('projectFilter').value='';$('period').value='all';$('search').value='';$('categoryFilter').value='';$('typeFilter').value='';$('fromDate').value='';$('toDate').value='';$('fromDate').classList.add('hidden');$('toDate').classList.add('hidden');page=1;render()}
 function openSettings(){
   $('apiUrl').value=prefs.api;
@@ -182,10 +196,10 @@ async function request(url,body){
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),45000);
   try{
     const response=await fetch(body?url:url+'?check='+Date.now(),body?{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow',credentials:'omit',signal:controller.signal}:{redirect:'follow',credentials:'omit',signal:controller.signal});
-    if(!response.ok)throw Error('Server merespons HTTP '+response.status);
+    if(!response.ok){const e=Error('Server merespons HTTP '+response.status);e.retryable=response.status===429||response.status>=500;throw e}
     return await response.json();
   }catch(e){
-    if(e.name==='AbortError')throw Error('Koneksi melewati batas waktu. Data lokal tetap tersimpan; coba sinkronkan kembali.');
+    if(e.name==='AbortError'){const err=Error('Google Sheets belum merespons. Data tersimpan lokal; pengiriman akan dicoba lagi.');err.retryable=true;throw err}if(e.name==='TypeError'){e=Object.assign(Error('Koneksi ke Google Sheets gagal. Data tersimpan lokal; pengiriman akan dicoba lagi.'),{retryable:true})}
     if(e instanceof SyntaxError)throw Error('Respons bukan JSON. Gunakan URL /exec dan akses deployment Anyone.');
     throw e;
   }finally{clearTimeout(timer)}
@@ -208,41 +222,82 @@ function validateReply(reply,databaseId){
   if(reply.api!==PROTOCOL||typeof reply.databaseId!=='string'||!reply.databaseId||reply.databaseId!==databaseId||typeof reply.revision!=='string')throw Error('Konfirmasi server tidak cocok dengan database aktif.');
   const data=normalize(reply.data),projects=normalizeProjects(reply.projects,data);return {data,projects};
 }
-function acceptCloud(reply,databaseId,expectedStamp){
-  const cloud=validateReply(reply,databaseId),disk=JSON.parse(localStorage.getItem(KEY)||'null');
-  if(conflict||(disk&&disk.stamp!==expectedStamp)){
-    setConflict('Data lokal berubah di tab lain saat pengiriman. Muat ulang halaman untuk memakai cache terbaru.');
-    throw Error('Konfirmasi cloud tidak ditulis ke cache yang telah berubah.');
-  }
-  const next={...state,...cloud,baseData:structuredClone(cloud.data),baseProjects:structuredClone(cloud.projects),databaseId,revision:reply.revision,pending:false,lastSync:new Date().toISOString(),stamp:uid()};
-  if(!persist(next))throw Error('Cloud sudah merespons, tetapi cache perangkat belum tersimpan. Coba lagi.');
-  if(canonical({data:state.data,projects:state.projects})!==canonical(cloud))closeEditors();
-  state=next;generation++;lastSyncError='';render();
-  $('connectionDetail').textContent='Terakhir tersinkron: '+new Date(state.lastSync).toLocaleString('id-ID');
+let retryTimer=null,retryCount=0,switchingDatabase=false,replacingCloud=false;
+function scheduleSync(delay=300){
+  clearTimeout(retryTimer);retryTimer=null;
+  if(demo||conflict||storageBlocked||!prefs.autoConnect||!prefs.api||!navigator.onLine)return;
+  retryTimer=setTimeout(()=>{retryTimer=null;if(busy)return scheduleSync(1000);if(state.databaseId){connected=true;sync()}else connect(prefs.api)},delay);
 }
-function closeEditors(){['txDialog','projectDialog','statusDialog','projectInfoDialog'].forEach(id=>{if($(id).open)$(id).close()})}
+function syncFailure(e){
+  lastSyncError=e.message;$('connectionDetail').textContent=e.message;
+  if(e.code==='CONFLICT'){setConflict(e.message);clearTimeout(retryTimer);retryTimer=null}
+  else{connected=false;if(e.retryable||['BUSY','RETRY'].includes(e.code)){scheduleSync([5000,15000,30000,60000][Math.min(retryCount++,3)])}}
+  toast(e.message);updateStatus();
+}
+function overlayChanges(remote,changes){
+  const map=new Map(remote.map(r=>[r.id,r]));
+  for(const c of changes){const actual=map.get(c.id)||null;
+    if(canonical(actual)===canonical(c.after))continue;
+    if(canonical(actual)!==canonical(c.before)){const e=Error('Item yang sama berubah di cloud saat Anda mengedit. Data lokal tetap disimpan; tinjau perbedaannya.');e.code='CONFLICT';throw e}
+    if(c.after===null)map.delete(c.id);else map.set(c.id,c.after);
+  }
+  return [...map.values()];
+}
+function refreshEditors(previous,next){
+  const changed=(a,b,id)=>canonical(a.find(x=>x.id===id)||null)!==canonical(b.find(x=>x.id===id)||null);
+  let closed=false;
+  if($('txDialog').open){const name=$('proyek').value;const a=previous.projects.find(p=>p.name===name),b=next.projects.find(p=>p.name===name);
+    if((editId&&changed(previous.data,next.data,editId))||canonical(a||null)!==canonical(b||null)){$('txDialog').close();closed=true}}
+  if($('projectDialog').open&&editingProjectId&&changed(previous.projects,next.projects,editingProjectId)){$('projectDialog').close();closed=true}
+  if($('statusDialog').open&&statusProjectId){const p=previous.projects.find(x=>x.id===statusProjectId);if(changed(previous.projects,next.projects,statusProjectId)||canonical(previous.data.filter(r=>r.proyek===p?.name))!==canonical(next.data.filter(r=>r.proyek===p?.name))){$('statusDialog').close();closed=true}}
+  if(closed)toast('Data yang sedang diedit berubah di cloud. Buka kembali formulir untuk memakai data terbaru.');
+}
+function acceptCloud(reply,databaseId,sent){
+  const cloud=validateReply(reply,databaseId),disk=JSON.parse(localStorage.getItem(KEY)||'null');
+  if(conflict||(disk&&disk.stamp!==state.stamp)){
+    setConflict('Data lokal berubah di tab lain saat pengiriman. Muat ulang halaman untuk memakai cache terbaru.');
+    throw Error('Cache tab lain dipertahankan. Muat ulang halaman.');
+  }
+  // Replay only changes made AFTER this request was captured.
+  const data=normalize(overlayChanges(cloud.data,makeChanges(sent.data,state.data)));
+  let projectList;
+  try{projectList=normalizeProjects(overlayChanges(cloud.projects,makeChanges(sent.projects,state.projects)),data);validateProjectChanges(cloud,{data,projects:projectList})}
+  catch(e){e.code='CONFLICT';throw e}
+  const pending=makeChanges(cloud.data,data).length>0||makeChanges(cloud.projects,projectList).length>0;
+  const next={...state,data,projects:projectList,baseData:structuredClone(cloud.data),baseProjects:structuredClone(cloud.projects),databaseId,revision:reply.revision,pending,flight:null,lastSync:new Date().toISOString(),stamp:uid()};
+  if(!persist(next))throw Error('Cloud merespons, tetapi konfirmasi lokal belum tersimpan. Backup lalu coba sinkronkan lagi.');
+  refreshEditors(state,next);state=next;generation++;lastSyncError='';retryCount=0;render();
+  $('connectionDetail').textContent='Terakhir tersinkron: '+new Date(state.lastSync).toLocaleString('id-ID')+(pending?' · masih ada perubahan dalam antrean.':'.');
+}
 async function sync(){
   if(demo||busy||!connected||conflict||storageBlocked)return;
-  busy=true;updateStatus();$('connect').disabled=true;
-  const databaseId=state.databaseId,stamp=state.stamp;
+  clearTimeout(retryTimer);retryTimer=null;busy=true;updateStatus();$('connect').disabled=true;
+  let completed=false;
   try{
-    const changes={transactions:makeChanges(state.baseData,state.data),projects:makeChanges(state.baseProjects,state.projects)};
-    const hasChanges=changes.transactions.length||changes.projects.length;
-    const reply=await request(prefs.api,{api:PROTOCOL,action:hasChanges?'sync':'read',databaseId,...(hasChanges?{changes}:{})});
-    acceptCloud(reply,databaseId,stamp);
-  }catch(e){
-    lastSyncError=e.message;$('connectionDetail').textContent=e.message;
-    if(e.code==='CONFLICT')setConflict(e.message);else connected=false;
-    toast(e.message);
-  }finally{busy=false;$('connect').disabled=false;updateStatus()}
+    const disk=JSON.parse(localStorage.getItem(KEY)||'null');
+    if(disk&&disk.stamp!==state.stamp){setConflict('Cache berubah di tab lain. Muat ulang sebelum mengirim.');return}
+    if(!state.flight){
+      const changes={transactions:makeChanges(state.baseData,state.data),projects:makeChanges(state.baseProjects,state.projects)};
+      if(changes.transactions.length||changes.projects.length){
+        const next={...state,flight:{changes,data:structuredClone(state.data),projects:structuredClone(state.projects)},stamp:uid()};
+        if(!persist(next))throw Error('Antrean pengiriman belum dapat disimpan di perangkat.');state=next;
+      }
+    }
+    const sent=structuredClone(state.flight||{data:state.data,projects:state.projects}),databaseId=state.databaseId;
+    const reply=await request(prefs.api,{api:PROTOCOL,action:state.flight?'sync':'read',databaseId,...(state.flight?{changes:sent.changes}:{})});
+    acceptCloud(reply,databaseId,sent);completed=true;
+  }catch(e){syncFailure(e)}
+  finally{busy=false;$('connect').disabled=false;updateStatus();if(completed&&state.pending)scheduleSync()}
 }
+
+function closeEditors(){['txDialog','projectDialog','statusDialog','projectInfoDialog'].forEach(id=>{if($(id).open)$(id).close()})}
 async function connect(urlOverride){
   if(demo)return toast('Keluar dari demo untuk menghubungkan data asli.');
   if(busy)return;
   const url=(typeof urlOverride==='string'?urlOverride:$('apiUrl').value).trim();
   if(!validateURL(url))return toast('Gunakan URL https://script.google.com/macros/s/…/exec');
   if(storageBlocked&&url===prefs.api)return toast(loadIssue||'Periksa penyimpanan perangkat.');
-  busy=true;$('connect').disabled=true;setStatus('busy','Memeriksa spreadsheet…');
+  switchingDatabase=url!==prefs.api;busy=true;$('connect').disabled=true;setStatus('busy','Memeriksa spreadsheet…');
   const previousConnected=connected;let ready=false,initialLoaded=false;
   try{
     const info=await request(url);
@@ -257,25 +312,25 @@ async function connect(urlOverride){
     if(initial)validateReply(initial,info.databaseId);
     const oldKey=KEY,oldState=state,oldConflict=conflict;
     KEY=key;state=candidate;conflict=false;
-    try{if(initial){acceptCloud(initial,info.databaseId,candidate.stamp);initialLoaded=true}}
+    try{if(initial){acceptCloud(initial,info.databaseId,candidate);initialLoaded=true}}
     catch(e){KEY=oldKey;state=oldState;conflict=oldConflict;throw e}
     prefs.api=url;prefs.autoConnect=true;savePrefs();connected=true;storageBlocked=false;loadIssue='';lastSyncError='';
     if(changed){page=1;['txDialog','projectDialog','statusDialog','projectInfoDialog'].forEach(id=>{if($(id).open)$(id).close()});toast('Spreadsheet terhubung. Cache tiap URL disimpan terpisah.');}
     ready=true;
-  }catch(e){connected=previousConnected;lastSyncError=e.message;$('connectionDetail').textContent=e.message;toast(e.message)}
-  finally{busy=false;$('connect').disabled=false;render()}
+  }catch(e){connected=previousConnected;if(switchingDatabase){lastSyncError=e.message;toast(e.message)}else syncFailure(e)}
+  finally{busy=false;switchingDatabase=false;$('connect').disabled=false;render()}
   if(ready&&!initialLoaded)await sync();
 }
 async function reloadCloud(){
   if(demo||busy)return;
   if(!connected||!state.databaseId)return toast('Hubungkan server terlebih dahulu.');
   if(!confirm('Muat cloud akan mengganti perubahan lokal yang belum terkirim. Pastikan backup JSON sudah diunduh. Lanjutkan?'))return;
-  busy=true;updateStatus();const previousConflict=conflict,stamp=state.stamp;
+  busy=true;replacingCloud=true;updateStatus();const previousConflict=conflict;
   try{
     const reply=await request(prefs.api,{api:PROTOCOL,action:'read',databaseId:state.databaseId});
-    conflict=false;acceptCloud(reply,state.databaseId,stamp);toast('Data cloud dimuat.');
+    conflict=false;acceptCloud(reply,state.databaseId,structuredClone(state));closeEditors();toast('Data cloud dimuat.');
   }catch(e){conflict=previousConflict||conflict;lastSyncError=e.message;toast(e.message)}
-  finally{busy=false;render()}
+  finally{busy=false;replacingCloud=false;render()}
 }
 
 function projects(){return demo?demoProjects:state.projects}
@@ -283,11 +338,11 @@ function findProject(name){return projects().find(p=>p.name===name)}
 function statusLabel(status){return {active:'Aktif',closed:'Kas ditutup',archived:'Diarsipkan'}[status]}
 function canEditProject(name){return findProject(name)?.status==='active'}
 function snapshot(){return {data:rows(),projects:projects()}}
-function commitSnapshot(data,projectList){try{const normalized=normalize(data),normalizedProjects=normalizeProjects(projectList,normalized);validateProjectChanges(snapshot(),{data:normalized,projects:normalizedProjects});if(!demo){if(!state.databaseId){toast('Hubungkan spreadsheet baru sebelum mencatat data.');openSettings();return false}if(busy){toast('Tunggu sinkronisasi selesai sebelum menyimpan perubahan.');return false}if(storageBlocked)throw Error('Selesaikan masalah penyimpanan lokal dahulu.');if(conflict)throw Error('Tinjau konflik di Pengaturan dahulu.');const disk=JSON.parse(localStorage.getItem(KEY)||'null');if(disk&&disk.stamp!==state.stamp){state={...disk,data:normalize(disk.data),projects:normalizeProjects(disk.projects,disk.data)};closeEditors();render();throw Error('Data berubah di tab lain. Buka ulang formulir sebelum menyimpan.');}const next={...state,data:normalized,projects:normalizedProjects,pending:true,stamp:uid()};if(!persist(next))return false;state=next;generation++;}else{demoData=normalized;demoProjects=normalizedProjects}render();if(connected&&!demo)sync();return true}catch(e){toast(e.message);return false}}
+function commitSnapshot(data,projectList){try{const normalized=normalize(data),normalizedProjects=normalizeProjects(projectList,normalized);validateProjectChanges(snapshot(),{data:normalized,projects:normalizedProjects});if(!demo){if(!state.databaseId){toast('Hubungkan spreadsheet baru sebelum mencatat data.');openSettings();return false}if(switchingDatabase||replacingCloud){toast('Tunggu pergantian sumber data selesai.');return false}if(storageBlocked)throw Error('Selesaikan masalah penyimpanan lokal dahulu.');if(conflict)throw Error('Tinjau konflik di Pengaturan dahulu.');const disk=JSON.parse(localStorage.getItem(KEY)||'null');if(disk&&disk.stamp!==state.stamp){state={...disk,data:normalize(disk.data),projects:normalizeProjects(disk.projects,disk.data)};closeEditors();render();throw Error('Data berubah di tab lain. Buka ulang formulir sebelum menyimpan.');}const next={...state,data:normalized,projects:normalizedProjects,pending:true,stamp:uid()};if(!persist(next))return false;state=next;generation++;}else{demoData=normalized;demoProjects=normalizedProjects}render();if(!demo&&prefs.autoConnect){if(connected)sync();else if(!retryTimer)scheduleSync(1000)}return true}catch(e){toast(e.message);return false}}
 function projectStats(data){const name=$('projectFilter').value;return projects().filter(p=>!name||p.name===name).map(p=>{const tx=data.filter(r=>r.proyek===p.name);return {...p,...sums(tx),count:tx.length}})}
 function renderProjects(data){const tab=$('projectStatus').value;const list=projectStats(data).filter(p=>tab==='all'||p.status===tab);document.querySelectorAll('[data-projecttab]').forEach(b=>b.classList.toggle('active',b.dataset.projecttab===tab));$('projectCards').innerHTML=list.length?list.map((p,i)=>{const all=rows().filter(r=>r.proyek===p.name),canDelete=all.length===0;return `<article class="card projectcard stagger" data-status="${p.status}"><div class="projecttop"><span class="avatar">${escapeHTML(p.name.slice(0,2).toUpperCase())}</span><span class="status-label ${p.status}">${statusLabel(p.status)}</span></div><h3>${escapeHTML(p.name)}</h3><small>${escapeHTML(p.location||'Lokasi belum diisi')} · ${p.count} transaksi terfilter</small><div class="projectbalance ${p.income-p.expense<0?'negative':''}">${rupiah(p.income-p.expense)}</div><div class="details"><span class="muted">Pemasukan periode</span><span>${rupiah(p.income)}</span></div><div class="details"><span class="muted">Pengeluaran periode</span><span>${rupiah(p.expense)}</span></div>${p.status!=='active'?`<div class="details"><span class="muted">Saldo saat tutup kas</span><b>${rupiah(p.closedBalance)}</b></div>`:''}<div class="project-actions"><button class="btn" data-project="${escapeHTML(p.name)}">Transaksi ${icon('arrow')}</button><button class="btn" data-projectinfo="${escapeHTML(p.id)}">Riwayat</button>${p.status==='active'?`<button class="btn" data-projectedit="${escapeHTML(p.id)}">Edit</button><button class="btn danger" data-projectaction="closed" data-pid="${escapeHTML(p.id)}">Tutup kas</button>`:p.status==='closed'?`<button class="btn" data-projectaction="reopened" data-pid="${escapeHTML(p.id)}">Buka kas</button><button class="btn" data-projectaction="archived" data-pid="${escapeHTML(p.id)}">Arsipkan</button>`:`<button class="btn" data-projectaction="restored" data-pid="${escapeHTML(p.id)}">Pulihkan arsip</button>`}${canDelete?`<button class="btn danger" data-projectdelete="${escapeHTML(p.id)}" aria-label="Hapus proyek kosong">${icon('trash')}</button>`:''}</div></article>`}).join(''):'<div class="card empty" style="grid-column:1/-1"><strong>Belum ada proyek pada tampilan ini.</strong>Gunakan Tambah proyek untuk mendaftarkan pekerjaan baru atau pilih status lain.</div>'}
 let editingProjectId=null,statusProjectId=null,statusAction=null,infoProjectId=null;
-function openProjectForm(id=null){if(!demo&&!state.databaseId){toast('Hubungkan spreadsheet baru terlebih dahulu.');return openSettings()}if(!demo&&(conflict||storageBlocked||busy))return toast('Tinjau status sinkronisasi terlebih dahulu.');const p=id?projects().find(p=>p.id===id):null;if(p&&p.status!=='active')return toast('Buka kas dahulu untuk mengedit proyek.');editingProjectId=id;$('projectForm').reset();$('projectFormTitle').textContent=id?'Edit proyek':'Tambah proyek';$('projectName').value=p?.name||'';$('projectLocation').value=p?.location||'';$('projectDialog').showModal()}
+function openProjectForm(id=null){if(!demo&&!state.databaseId){toast('Hubungkan spreadsheet baru terlebih dahulu.');return openSettings()}if(!demo&&(conflict||storageBlocked||switchingDatabase||replacingCloud))return toast('Tinjau status sinkronisasi terlebih dahulu.');const p=id?projects().find(p=>p.id===id):null;if(p&&p.status!=='active')return toast('Buka kas dahulu untuk mengedit proyek.');editingProjectId=id;$('projectForm').reset();$('projectFormTitle').textContent=id?'Edit proyek':'Tambah proyek';$('projectName').value=p?.name||'';$('projectLocation').value=p?.location||'';$('projectDialog').showModal()}
 $('projectForm').addEventListener('submit',e=>{e.preventDefault();const name=$('projectName').value.trim(),location=$('projectLocation').value.trim();if(!name)return;const old=projects().find(p=>p.id===editingProjectId);if(editingProjectId&&!old)return toast('Proyek sudah berubah. Buka ulang formulir.');const p=old?{...old,name,location}:{id:uid(),name,location,status:'active',createdAt:new Date().toISOString(),closedAt:'',closedBalance:0,closingNote:'',history:[]};const list=old?projects().map(x=>x.id===p.id?p:x):[...projects(),p];const data=old?rows().map(r=>r.proyek===old.name?{...r,proyek:name}:r):rows();if(commitSnapshot(data,list)){$('projectDialog').close();$('projectStatus').value='active';navigate('projects');toast(old?'Proyek diperbarui; transaksi tetap terhubung.':'Proyek baru siap digunakan.')}});
 function showProjectAction(id,action){const p=projects().find(x=>x.id===id);if(!p)return;statusProjectId=id;statusAction=action;const labels={closed:'Tutup kas proyek',reopened:'Buka kembali kas',archived:'Arsipkan proyek',restored:'Pulihkan dari arsip'};$('statusTitle').textContent=labels[action];$('statusProjectName').textContent=p.name;const total=sums(rows().filter(r=>r.proyek===p.name));$('closingSummary').innerHTML=[['Total masuk',total.income],['Total keluar',total.expense],['Saldo seluruh waktu',total.income-total.expense]].map(([k,v])=>`<div><small>${k}</small><b>${rupiah(v)}</b></div>`).join('');$('statusExplanation').textContent=action==='closed'?'Seluruh transaksi proyek dikunci setelah penutupan. Saldo tidak otomatis menjadi nol. Catat pengembalian atau pemindahan dana sebelum menutup kas bila diperlukan.':action==='reopened'?'Kas dibuka agar transaksi dapat dikoreksi atau ditambahkan. Ringkasan penutupan sebelumnya tetap tercatat.':action==='archived'?'Proyek dipindahkan ke tab Arsip. Seluruh transaksi dan ringkasan penutupan tetap tersimpan.':'Proyek kembali ke status Kas ditutup. Buka kas jika Anda ingin mencatat transaksi lagi.';$('statusNote').value='';$('statusSubmit').textContent=labels[action];$('statusConfirm').checked=false;$('statusDialog').showModal()}
 $('statusForm').addEventListener('submit',e=>{e.preventDefault();const p=projects().find(x=>x.id===statusProjectId);if(!p)return toast('Proyek tidak ditemukan.');const note=$('statusNote').value.trim();if(!note)return toast('Isi catatan perubahan status.');const now=new Date().toISOString(),balance=projectBalance(rows(),p.name);const next={...p,status:{closed:'closed',reopened:'active',archived:'archived',restored:'closed'}[statusAction],history:[...p.history,{type:statusAction,at:now,note,balance}]};if(statusAction==='closed'){next.closedAt=now;next.closedBalance=balance;next.closingNote=note}if(commitSnapshot(rows(),projects().map(x=>x.id===p.id?next:x))){$('statusDialog').close();$('projectStatus').value=next.status;navigate('projects');toast('Status proyek diperbarui.')}});
@@ -299,10 +354,10 @@ function importBackup(parsed){const incoming=normalize(Array.isArray(parsed)?par
 
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.view)navigate(b.dataset.view);if(b.hasAttribute('data-newproject'))openProjectForm();if(b.dataset.projectedit)openProjectForm(b.dataset.projectedit);if(b.dataset.projectinfo)projectInfo(b.dataset.projectinfo);if(b.dataset.projectdelete)deleteProject(b.dataset.projectdelete);if(b.dataset.projectaction)showProjectAction(b.dataset.pid,b.dataset.projectaction);if(b.dataset.projecttab){$('projectStatus').value=b.dataset.projecttab;renderProjects(context())}if(b.hasAttribute('data-settings'))openSettings();if(b.hasAttribute('data-backup'))backup();if(b.dataset.close)$(b.dataset.close).close();if(b.dataset.type)setType(b.dataset.type);if(b.dataset.edit)openForm(b.dataset.edit);if(b.dataset.copy)openForm(b.dataset.copy,true);if(b.dataset.delete)remove(b.dataset.delete);if(b.dataset.project){$('projectFilter').value=b.dataset.project;navigate('transactions')}});
 $('addButton').onclick=()=>openForm();$('seeAll').onclick=()=>navigate('transactions');$('themeToggle').onclick=()=>{prefs.theme=document.documentElement.dataset.theme==='dark'?'light':'dark';savePrefs();applyPrefs()};$('layout').onchange=e=>{prefs.layout=e.target.value;savePrefs();applyPrefs()};$('settingLayout').onchange=e=>{prefs.layout=e.target.value;savePrefs();applyPrefs()};$('settingTheme').onchange=e=>{prefs.theme=e.target.value;savePrefs();applyPrefs()};matchMedia('(prefers-color-scheme:dark)').addEventListener('change',applyPrefs);
-['projectFilter','period','fromDate','toDate'].forEach(id=>$(id).addEventListener('change',()=>{$('fromDate').classList.toggle('hidden',$('period').value!=='custom');$('toDate').classList.toggle('hidden',$('period').value!=='custom');if($('fromDate').value&&$('toDate').value&&$('fromDate').value>$('toDate').value)toast('Tanggal awal melewati tanggal akhir. Sesuaikan rentang tanggal.');page=1;render()}));['categoryFilter','typeFilter','sort'].forEach(id=>$(id).onchange=()=>{page=1;renderTable()});$('search').oninput=()=>{page=1;renderTable()};$('prevPage').onclick=()=>{page--;renderTable()};$('nextPage').onclick=()=>{page++;renderTable()};$('resetFilters').onclick=resetFilters;$('qty').oninput=calc;$('harga').oninput=e=>{const old=e.target.value,pos=e.target.selectionStart;e.target.value=moneyInput(old);const newPos=Math.max(0,pos+e.target.value.length-old.length);e.target.setSelectionRange(newPos,newPos);calc()};$('exportCSV').onclick=csv;$('printReport').onclick=()=>window.print();['startDemo','demoSide','demoSettings'].forEach(id=>$(id).onclick=enterDemo);$('exitDemo').onclick=exitDemo;$('syncBadge').onclick=()=>connected&&!conflict?sync():openSettings();$('connect').onclick=connect;$('reloadCloud').onclick=reloadCloud;$('disconnect').onclick=()=>{if(busy)return toast('Tunggu sinkronisasi selesai.');connected=false;prefs.autoConnect=false;savePrefs();lastSyncError='';updateStatus();toast('Koneksi diputus. Salinan lokal tetap tersedia.')};$('importButton').onclick=()=>$('importFile').click();$('importFile').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>10*1024*1024)throw Error('File terlalu besar. Maksimum 10 MB.');const parsed=JSON.parse(await file.text());importBackup(parsed)}catch(e){toast('Impor gagal: '+e.message)}finally{$('importFile').value=''}};
+['projectFilter','period','fromDate','toDate'].forEach(id=>$(id).addEventListener('change',()=>{$('fromDate').classList.toggle('hidden',$('period').value!=='custom');$('toDate').classList.toggle('hidden',$('period').value!=='custom');if($('fromDate').value&&$('toDate').value&&$('fromDate').value>$('toDate').value)toast('Tanggal awal melewati tanggal akhir. Sesuaikan rentang tanggal.');page=1;render()}));['categoryFilter','typeFilter','sort'].forEach(id=>$(id).onchange=()=>{page=1;renderTable()});$('search').oninput=()=>{page=1;renderTable()};$('prevPage').onclick=()=>{page--;renderTable()};$('nextPage').onclick=()=>{page++;renderTable()};$('resetFilters').onclick=resetFilters;$('qty').oninput=calc;$('harga').oninput=e=>{const old=e.target.value,pos=e.target.selectionStart;e.target.value=moneyInput(old);const newPos=Math.max(0,pos+e.target.value.length-old.length);e.target.setSelectionRange(newPos,newPos);calc()};$('exportCSV').onclick=csv;$('printReport').onclick=()=>window.print();['startDemo','demoSide','demoSettings'].forEach(id=>$(id).onclick=enterDemo);$('exitDemo').onclick=exitDemo;$('syncBadge').onclick=()=>connected&&!conflict?sync():openSettings();$('connect').onclick=connect;$('reloadCloud').onclick=reloadCloud;$('disconnect').onclick=()=>{if(busy)return toast('Tunggu sinkronisasi selesai.');connected=false;prefs.autoConnect=false;clearTimeout(retryTimer);retryTimer=null;savePrefs();lastSyncError='';updateStatus();toast('Koneksi diputus. Salinan lokal tetap tersedia.')};$('importButton').onclick=()=>$('importFile').click();$('importFile').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>10*1024*1024)throw Error('File terlalu besar. Maksimum 10 MB.');const parsed=JSON.parse(await file.text());importBackup(parsed)}catch(e){toast('Impor gagal: '+e.message)}finally{$('importFile').value=''}};
 document.addEventListener('keydown',e=>{if(document.querySelector('dialog[open]')||e.ctrlKey||e.metaKey||e.altKey||/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;if(e.key==='/'){e.preventDefault();navigate('transactions');$('search').focus()}if(e.key.toLowerCase()==='n'){e.preventDefault();openForm()}});
 window.addEventListener('offline',updateStatus);window.addEventListener('online',()=>{updateStatus();if(prefs.autoConnect&&prefs.api&&!demo){if(connected)sync();else connect(prefs.api)}});window.addEventListener('beforeunload',e=>{if(busy){e.preventDefault();e.returnValue=''}});
-window.addEventListener('storage',e=>{if(e.key===KEY&&e.newValue){if(busy){connected=false;setConflict('Data lokal berubah dari tab lain saat sinkronisasi. Muat ulang halaman sebelum melanjutkan.');return}try{const incoming=JSON.parse(e.newValue);state=readCache(KEY);generation++;['txDialog','projectDialog','statusDialog','projectInfoDialog'].forEach(id=>{if($(id).open)$(id).close()});render();toast('Data diperbarui dari tab lain.')}catch{storageBlocked=true;toast('Data lokal dari tab lain tidak valid. Ekspor backup dan periksa penyimpanan.')}}});
+window.addEventListener('storage',e=>{if(e.key===KEY){if(busy||!e.newValue){connected=false;setConflict('Penyimpanan berubah dari tab lain. Muat ulang halaman sebelum melanjutkan.');return}try{const incoming=JSON.parse(e.newValue);state=readCache(KEY);generation++;['txDialog','projectDialog','statusDialog','projectInfoDialog'].forEach(id=>{if($(id).open)$(id).close()});render();toast('Data diperbarui dari tab lain.')}catch{storageBlocked=true;toast('Data lokal dari tab lain tidak valid. Ekspor backup dan periksa penyimpanan.')}}});
 $('printClosure').onclick=printClosure;
 $('todayLabel').textContent=new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});applyPrefs();render();paintIcons();if(loadIssue){$('setupNotice').classList.remove('hidden');$('setupNotice').querySelector('p').textContent=loadIssue;toast(loadIssue)}
 if(prefs.api&&prefs.autoConnect&&!storageBlocked)connect(prefs.api);
